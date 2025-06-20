@@ -1,48 +1,52 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
+loadstring([[
+-- Improved Adopt Me AutoFarm (Xeno-friendly, safer-ish)
 
--- GUI Setup
 local gui = Instance.new("ScreenGui")
-gui.Name = "XenoSafeAdoptMeFarm"
+local frame = Instance.new("Frame")
+local title = Instance.new("TextLabel")
+local startBtn = Instance.new("TextButton")
+local stopBtn = Instance.new("TextButton")
+local status = Instance.new("TextLabel")
+
+gui.Name = "AdoptMeAutoFarm"
 gui.Parent = game.CoreGui
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 280, 0, 180)
-frame.Position = UDim2.new(0.5, -140, 0.5, -90)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.Size = UDim2.new(0, 260, 0, 180)
+frame.Position = UDim2.new(0.5, -130, 0.5, -90)
+frame.BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
 frame.Active = true
 frame.Draggable = true
 frame.Parent = gui
 
-local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "Xeno Adopt Me AutoFarm"
-title.TextColor3 = Color3.new(1,1,1)
+title.Text = "Safer Adopt Me AutoFarm"
+title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
+title.Parent = frame
 
-local startBtn = Instance.new("TextButton", frame)
-startBtn.Size = UDim2.new(1, -20, 0, 40)
+startBtn.Size = UDim2.new(1, -20, 0, 45)
 startBtn.Position = UDim2.new(0, 10, 0, 40)
 startBtn.Text = "Start AutoFarm"
-startBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-startBtn.TextColor3 = Color3.new(1,1,1)
+startBtn.TextColor3 = Color3.new(1, 1, 1)
+startBtn.BackgroundColor3 = Color3.new(0, 0.5, 0)
+startBtn.Parent = frame
 
-local stopBtn = Instance.new("TextButton", frame)
-stopBtn.Size = UDim2.new(1, -20, 0, 40)
+stopBtn.Size = UDim2.new(1, -20, 0, 45)
 stopBtn.Position = UDim2.new(0, 10, 0, 90)
 stopBtn.Text = "Stop AutoFarm"
-stopBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-stopBtn.TextColor3 = Color3.new(1,1,1)
+stopBtn.TextColor3 = Color3.new(1, 1, 1)
+stopBtn.BackgroundColor3 = Color3.new(0.5, 0, 0)
+stopBtn.Parent = frame
 
-local status = Instance.new("TextLabel", frame)
 status.Size = UDim2.new(1, 0, 0, 20)
 status.Position = UDim2.new(0, 0, 1, -20)
 status.Text = "Status: Idle"
-status.TextColor3 = Color3.fromRGB(255, 255, 0)
+status.TextColor3 = Color3.new(1, 1, 0)
 status.BackgroundTransparency = 1
+status.Parent = frame
 
 local running = false
+local player = game.Players.LocalPlayer
 
 local locations = {
     {name = "School", pos = Vector3.new(-28, 21, -680)},
@@ -56,30 +60,31 @@ local locations = {
     {name = "Salon", pos = Vector3.new(235, 22, -635)},
 }
 
-local function walkTo(position)
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Humanoid") then
-        return false
+local function teleportTo(pos)
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
     end
-    local humanoid = character.Humanoid
-    local hrp = character.HumanoidRootPart
-    local reached = false
+end
 
-    humanoid:MoveTo(position)
-    status.Text = "Status: Walking to " .. tostring(position)
-
-    local connection
-    connection = humanoid.MoveToFinished:Connect(function(reachedSuccessfully)
-        reached = true
-        connection:Disconnect()
-    end)
-
-    local timeout = tick() + 20
-    while not reached and tick() < timeout do
-        wait(0.3)
+local function doPetTasks()
+    local pets = workspace:FindFirstChild("Pets")
+    if pets then
+        for _, pet in pairs(pets:GetChildren()) do
+            if pet:FindFirstChild("Owner") and pet.Owner.Value == player then
+                for _, part in pairs(workspace:GetDescendants()) do
+                    if part:IsA("ProximityPrompt") and
+                       (part.Name:lower():find("sleep") or part.Name:lower():find("bed") or part.Name:lower():find("bowl") or part.Name:lower():find("water")) then
+                        fireproximityprompt(part)
+                        wait(math.random(1,2))
+                    end
+                end
+            end
+        end
     end
-    humanoid:MoveTo(hrp.Position) -- Stop moving
-    return reached
+end
+
+local function randomWait(min, max)
+    wait(math.random(min * 100, max * 100) / 100)
 end
 
 local function antiAfk()
@@ -94,36 +99,30 @@ end
 local function runAutoFarm()
     antiAfk()
     while running do
-        for _, loc in ipairs(locations) do
+        for _, loc in pairs(locations) do
             if not running then break end
-            status.Text = "Status: Moving to " .. loc.name
-            local success = walkTo(loc.pos)
-            if not success then
-                status.Text = "Status: Failed to reach " .. loc.name
-                wait(3)
-            else
-                status.Text = "Status: At " .. loc.name
-                -- Just wait here to simulate interacting with pets/tasks
-                wait(math.random(8, 15))
-                -- Random breaks to look natural
-                if math.random(1,10) == 5 then
-                    status.Text = "Status: Taking a short break..."
-                    wait(math.random(20, 40))
-                end
+            teleportTo(loc.pos)
+            status.Text = "Status: "..loc.name
+            doPetTasks()
+            randomWait(6, 12)
+            if math.random(1, 10) == 5 then
+                status.Text = "Status: Taking a short break..."
+                wait(math.random(20, 40))
             end
         end
     end
-    status.Text = "Status: Stopped"
 end
 
 startBtn.MouseButton1Click:Connect(function()
     if not running then
         running = true
+        status.Text = "Status: Running"
         spawn(runAutoFarm)
     end
 end)
 
 stopBtn.MouseButton1Click:Connect(function()
     running = false
+    status.Text = "Status: Stopped"
 end)
-
+]])()
